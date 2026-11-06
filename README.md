@@ -2,6 +2,8 @@
 
 **論文の図から、生データまで辿れる研究フォルダ**を、コマンド一つで手元に作るための道具箱（`labkit`）。
 
+教習ページ（仕組みの考え方）: https://keisuke0502watanabe.github.io/traceable-lab/
+
 DSC・XRD・SAXS などの測定が増え続ける研究室で、一年近く運用した仕組みを一般化したものです。
 半年後に「この図はどの測定から、どの条件で描いたのか」と聞かれても、すぐ答えられるようにします。
 
@@ -16,7 +18,7 @@ DSC・XRD・SAXS などの測定が増え続ける研究室で、一年近く運
 ## 入れ方
 
 ```bash
-pip install git+https://github.com/<OWNER>/traceable-lab
+pip install git+https://github.com/keisuke0502watanabe/traceable-lab
 ```
 
 入れずに使うなら clone して `python3 -m labkit …`。

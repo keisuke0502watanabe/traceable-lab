@@ -580,7 +580,10 @@ labkit downstream tools/segments.py   <span class="c"># 直したら作り直す
 <div class="code"><div class="cap"><span>雛形を作るコマンド</span><button class="copy" type="button">コピー</button></div><pre><code>mkdir -p my-project/{DATA,analyses,notes,scratch,tools,reports,Documents}
 printf 'meas_id,instr,date,sample,thermal_history,path,status,tags,note\n' &gt; my-project/ledger.csv
 printf '# my-project\n\n## 二つの禁止\n1. DATA/ に触らない\n2. analyses/ を消さない\n' &gt; my-project/README.md</code></pre></div>
-  <div class="note ok"><b>コマンド一つで雛形を作る</b>ここまでの仕組みを <code>labkit</code> という道具にまとめました（標準ライブラリだけで動く Python）。<code>labkit demo my-demo</code> で、練習用の合成 DSC データから台帳・解析・ギャラリー・点検までが手元にできます。公開先は GitHub の traceable-lab（準備中）。</div>
+  <div class="note ok"><b>コマンド一つで雛形を作る</b>ここまでの仕組みを <code>labkit</code> という道具にまとめました（標準ライブラリだけで動く Python）。<code>labkit demo my-demo</code> で、練習用の合成 DSC データから台帳・解析・ギャラリー・点検までが手元にできます。コードと使い方は <a href="https://github.com/keisuke0502watanabe/traceable-lab">github.com/keisuke0502watanabe/traceable-lab</a>。</div>
+<div class="code"><div class="cap"><span>入れ方と試し方</span><button class="copy" type="button">コピー</button></div><pre><code>pip install git+https://github.com/keisuke0502watanabe/traceable-lab
+labkit demo my-demo
+open my-demo/reports/figure_gallery.html</code></pre></div>
 <div class="code"><div class="cap"><span>labkit の主なコマンド</span><button class="copy" type="button">コピー</button></div><pre><code>labkit map ~/Research                <span class="c"># 研究フォルダ全体の地図</span>
 labkit init my-project               <span class="c"># 実験プロジェクトの雛形（CLAUDE.md と skill つき）</span>
 labkit ledger / refresh / trace      <span class="c"># 台帳、まとめて更新、根拠を辿る</span>
