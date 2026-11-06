@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "labkit"
+version = "0.1.0"
+description = "図から生データまで辿れる研究フォルダ（測定台帳・解析フォルダ・図ギャラリー）を作り、回すための道具箱"
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+dependencies = []
+
+[project.scripts]
+labkit = "labkit.cli:main"
+
+[tool.setuptools]
+packages = ["labkit", "labkit.readers"]
+
+[tool.setuptools.package-data]
+labkit = ["templates/**/*", "templates/**/.claude/**/*"]
