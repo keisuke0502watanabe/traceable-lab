@@ -26,6 +26,7 @@
 from __future__ import annotations
 
 import csv
+import hashlib
 import json
 import os
 import re
@@ -122,10 +123,48 @@ class Analysis:
         return "Analysis(%s, status=%s)" % (self.ana_id, self.manifest.get("status"))
 
 
+SNAPSHOT_COLUMNS = ("sample", "mass_mg", "thermal_history", "Ta_C", "status")
+
+
+def as_list(v) -> list:
+    if not v:
+        return []
+    return list(v) if isinstance(v, (list, tuple)) else [v]
+
+
+def file_sha1(path: str) -> str:
+    h = hashlib.sha1()
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(1 << 20), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def code_hashes(root: str, paths) -> dict:
+    """スクリプトの指紋。root 起点の相対パス → sha1（ファイルでないものは飛ばす）。"""
+    out = {}
+    for p in paths:
+        if not p:
+            continue
+        ap = p if os.path.isabs(p) else os.path.join(root, p)
+        if os.path.isfile(ap):
+            key = os.path.relpath(ap, root).replace(os.sep, "/")
+            out[key] = file_sha1(ap)
+    return out
+
+
 def new(ledger: Ledger, slug: str, question: str, inputs, procedure: str,
         params: dict | None = None, supersedes: str | None = None,
-        date: datetime | None = None, extra: dict | None = None) -> Analysis:
-    """analyses/ に新しい analysis を作る。inputs は台帳の行か meas_id の列。"""
+        date: datetime | None = None, extra: dict | None = None,
+        based_on: str | list | None = None, code_files: list | None = None) -> Analysis:
+    """analyses/ に新しい analysis を作る。inputs は台帳の行か meas_id の列。
+
+    検証のために、作った時点の三つの指紋を manifest に残す（labkit check が今と比べる）:
+      inputs_sha1   入力の生ファイルの sha1（DATA が書き換えられていないか）
+      inputs_rows   台帳の主な列の値（あとで質量の修正や status: bad が入っていないか）
+      code          procedure と code_files のスクリプトの sha1（あとで直されていないか）
+    based_on は「この解析の入力が別の解析の出力」のときの上流の ana_id（一つか列）。
+    """
     ids = [r["meas_id"] if isinstance(r, dict) else str(r) for r in inputs]
     unknown = [i for i in ids if not ledger.has(i)]
     if unknown:
@@ -161,7 +200,13 @@ def new(ledger: Ledger, slug: str, question: str, inputs, procedure: str,
         "results": None,
         "status": "tried",
         "supersedes": supersedes,
+        "based_on": based_on,
         "created": datetime.now().astimezone().isoformat(timespec="seconds"),
+        "inputs_sha1": {i: (file_sha1(ledger.resolve(r)) if os.path.isfile(ledger.resolve(r)) else None)
+                        for i, r in zip(ids, rows)},
+        "inputs_rows": {i: {k: r.get(k, "") for k in SNAPSHOT_COLUMNS} for i, r in zip(ids, rows)},
+        "code": code_hashes(ledger.root, [procedure] + list(code_files or [])),
+        "checks": [],
     }
     if extra:
         A.manifest.update(extra)
@@ -240,6 +285,28 @@ def register(ledger: Ledger, slug: str, question: str, inputs, procedure: str,
     return A
 
 
+CHECK_RESULTS = ("ok", "caution", "error")
+
+
+def add_check(root: str, ana_id: str, result: str, method: str, by: str = "", note: str = "",
+              report: str = "") -> dict:
+    """検証の記録を manifest の checks に足す（消さずに積む）。
+
+    result: ok（検算して一致）/ caution（要注意。使えるが条件つき）/ error（誤りを再現した）
+    method: どう確かめたか（例: 「生データから別実装で t5 を出し直して比較」）
+    report: 詳しい点検メモの場所（例: notes/audit-segments_2025-11-05.md）
+    """
+    if result not in CHECK_RESULTS:
+        raise ValueError("result は %s のどれか" % " / ".join(CHECK_RESULTS))
+    A = open_(root, ana_id)
+    rec = {"date": datetime.now().astimezone().isoformat(timespec="seconds"), "result": result,
+           "method": method, "by": by, "note": note, "report": report,
+           "code_at_check": code_hashes(root, list((A.manifest.get("code") or {}).keys()))}
+    A.manifest.setdefault("checks", []).append(rec)
+    A.write_manifest()
+    return rec
+
+
 def open_(root: str, ana_id: str) -> Analysis:
     A = Analysis(root, ana_id)
     if not A.manifest:
@@ -284,7 +351,7 @@ def build_index(root: str) -> str:
                 "samples": ";".join(s.get("samples", [])),
                 "supersedes": m.get("supersedes") or "",
                 "superseded_by": superseded_by.get(A.ana_id, ""),
-                "based_on": m.get("based_on") or "",
+                "based_on": ";".join(as_list(m.get("based_on"))),
                 "dir": m.get("external_dir") or os.path.relpath(A.dir, root),
             })
     return p

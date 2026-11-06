@@ -65,9 +65,22 @@ A = analysis.new(L, "fat-a-ta-scan", question="…", inputs=rows,
 A.finish(results={"n_runs": len(rows)}, status="used")      # used / tried / rejected
 ```
 
-**解析を足したら、最後に必ず** `labkit refresh`（台帳 → 一覧 → ギャラリーとビューアを作り直す）。
+**解析を足したら、最後に必ず** `labkit refresh`（台帳 → 一覧 → ギャラリーとビューア → 点検の要約）。
 
 人に見せた図・レポートは `reports/index.csv` に行を足す（どこに出したか = `used_for`）。
+
+## 検証
+
+二段に分ける。
+
+1. **機械の点検** `labkit check`（読むだけ。`reports/check_report.md`）。解析を作った時点の指紋（入力ファイルの sha1、
+   台帳の値、スクリプトの sha1）といまを比べて、DATA の書き換え・台帳の修正・スクリプトの変更・置き換え済みの版の引用・
+   上流の誤り・0 バイトのファイル・検証の記録が無い used を拾う
+2. **数値の検算** `labkit audit <名前>` で点検メモを作り、生データから別のコードで出し直して比べる。
+   点検中は何も直さない。誤り／要注意／問題なし／見ていないもの に分けて書く
+
+結果は `labkit verify <ana_id> --result ok|caution|error --method "…"` で解析に残す（ギャラリーに印が出る）。
+直したら `labkit downstream <ana_id|スクリプト>` の順に作り直す。
 
 ## 決めごと（規約）の記録
 

@@ -96,6 +96,45 @@ A.finish(results={"n": 2.8}, status="used")          # used / tried / rejected
 
 やり直しは `analysis.new(..., supersedes="<前の ana_id>")`。前の解析は消さずに `status="rejected"` と理由を残します。
 
+## 検証
+
+解析が数百になると、コードの小さな誤り（並び順、補間で埋めた値、片側だけの条件、途中で止めた測定 …）が
+下流の図や論文の数値にそのまま流れます。検証は二段に分けます。
+
+**1. 機械の点検（読むだけ）**
+
+```bash
+labkit check            # reports/check_report.md。--strict で誤りがあれば終了コード 1
+```
+
+解析を作った時点で manifest に残した指紋（入力ファイルの sha1、台帳の値、スクリプトの sha1）と、いまを比べます。
+
+| 種類 | 何を見つけるか |
+|---|---|
+| `data_changed` / `data_missing` | 凍結したはずの生データが書き換わった・消えた |
+| `zero_byte` / `unread_files` | 0 バイトのファイル、台帳に入らなかったファイル（黙って抜けない） |
+| `ledger_changed` | 解析のあとで台帳の値が変わった（質量の修正、status: bad） |
+| `code_changed` | 解析のあとでスクリプトが直された |
+| `superseded_used` | 置き換え済みの版が used のまま（古い版を引用していないか） |
+| `upstream_*` / `downstream_of_error` | 上流（based_on）が rejected・置き換え済み・誤りあり |
+| `check_error` / `unverified` | 検証で誤りが記録された解析、検証の記録が無い used |
+
+**2. 数値の検算（人と Claude）**
+
+```bash
+labkit audit segments   # 点検メモの雛形 notes/audit-segments_<日付>.md
+```
+
+点検中は何も直さず、生データから別のコードで数値を出し直して出力と比べ、誤り／要注意／問題なし／見ていないもの に分けて書きます。
+Claude には skill `verify-analysis` があります。結果は解析に残します。
+
+```bash
+labkit verify ana-…-ta-scan --result error --method "生データから段の境界を出し直した" --note "途中で止めたランで境界がずれる"
+labkit downstream tools/segments.py        # 直したら作り直す解析を、上流から順に
+```
+
+ギャラリーとビューアに「検証済み／要注意／誤りあり」と「置き換え済み」の印が出ます。
+
 ## 五つの約束
 
 1. 生データは凍結する（動かさない・名前を変えない）

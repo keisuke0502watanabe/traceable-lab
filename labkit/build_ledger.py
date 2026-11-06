@@ -138,6 +138,10 @@ def collect(root: str, readers) -> tuple[list[dict], Counter]:
     skipped: Counter = Counter()
     for p in walk(data):
         ext = os.path.splitext(p)[1].lower()
+        if os.path.getsize(p) == 0:            # 書き出し・変換が途中で落ちたファイル。黙って抜けないように数える
+            skipped["(0 バイト)"] += 1
+            print("  0 バイトのファイル: %s" % rel(root, p), file=sys.stderr)
+            continue
         row = None
         for exts, fn in readers:
             if ext in exts:

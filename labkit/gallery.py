@@ -112,13 +112,17 @@ def collect(root: str) -> dict:
             "superseded_by": superseded_by.get(A.ana_id, ""),
             "based_on": m.get("based_on") or "",
             "lineage": find(A.ana_id),
+            # 一覧で見せる状態: 置き換え済みの版は used でも superseded と出す
+            "state": "superseded" if superseded_by.get(A.ana_id) and m.get("status") == "used" else m.get("status", ""),
+            "checks": m.get("checks") or [],
+            "check": ((m.get("checks") or [{}])[-1]).get("result", ""),
             "dir": "../" + (ext or rel_dir),
             "notes": notes,
             "figs": figs,
         }
         analyses.append(rec)
         for i, fg in enumerate(figs):
-            figures.append({**fg, "ana": A.ana_id, "status": rec["status"], "samples": rec["samples"],
+            figures.append({**fg, "ana": A.ana_id, "status": rec["state"], "check": rec["check"], "samples": rec["samples"],
                             "created": created, "question": rec["question"]})
     return {"analyses": analyses, "figures": figures}
 
@@ -159,7 +163,8 @@ header h1{font-size:17px;margin:0}
 .chip{border:1px solid var(--rule);background:var(--card);color:var(--fg);border-radius:999px;padding:1px 10px;cursor:pointer;font:inherit;font-size:12.5px}
 .chip.on{background:var(--fg);color:var(--bg);border-color:var(--fg)}
 .st{font-size:11px;border-radius:3px;padding:0 6px;border:1px solid currentColor}
-.st-used{color:var(--used)}.st-tried{color:var(--tried)}.st-rejected{color:var(--rej)}
+.st-used{color:var(--used)}.st-tried{color:var(--tried)}.st-rejected{color:var(--rej)}.st-superseded{color:var(--mut)}
+.ck{font-size:11px;border-radius:3px;padding:0 6px;color:var(--bg)}.ck-ok{background:var(--used)}.ck-caution{background:#c28a1a}.ck-error{background:var(--rej)}
 input,select{font:inherit;padding:3px 8px;border:1px solid var(--rule);border-radius:4px;background:var(--card);color:var(--fg)}
 """
 
@@ -191,12 +196,13 @@ chips('fs','sample',[...new Set(F.flatMap(f=>f.samples))].sort());
 chips('fst','status',[...new Set(F.map(f=>f.status))].sort());
 [...new Set(F.map(f=>f.created.slice(0,7)))].sort().reverse().forEach(m=>{const o=document.createElement('option');o.value=o.textContent=m;fm.appendChild(o)});
 fm.onchange=()=>{st.month=fm.value;draw()};fg.onchange=()=>{st.group=fg.value;draw()};fq.oninput=()=>{st.q=fq.value.toLowerCase();draw()};
+const CK={ok:'検証済み',caution:'要注意',error:'誤りあり'};const ck=c=>c?'<span class="ck ck-'+esc(c)+'">'+CK[c]+'</span>':'';
 let shown=[];
 function draw(){shown=F.filter(f=>(!st.sample||f.samples.includes(st.sample))&&(!st.status||f.status===st.status)&&(!st.month||f.created.startsWith(st.month))&&(!st.q||(f.ana+' '+f.question+' '+f.name).toLowerCase().includes(st.q)));
 cnt.textContent=shown.length+' / '+F.length+' 枚';const g={};
 shown.forEach((f,i)=>{const ks=st.group==='date'?[f.created]:st.group==='ana'?[f.ana]:(f.samples.length?f.samples:['（試料なし）']);ks.forEach(k=>(g[k]=g[k]||[]).push(i))});
 const keys=Object.keys(g).sort();if(st.group==='date')keys.reverse();
-main.innerHTML=keys.length?keys.map(k=>'<section class="grp"><h2>'+esc(k)+'</h2><div class="grid">'+g[k].map(i=>{const f=shown[i];return '<div class="fig"><img loading="lazy" src="'+esc(f.src)+'" alt="'+esc(f.name)+'" data-i="'+i+'"><div class="m"><span>'+esc(f.name)+'</span><a class="mono" href="analyses_viewer.html#'+esc(f.ana)+'">'+esc(f.ana)+'</a><span class="q">'+esc(f.question)+'</span><span><span class="st st-'+esc(f.status)+'">'+esc(f.status)+'</span> '+(f.pdf?'<a href="'+esc(f.pdf)+'">PDF</a>':'')+'</span></div></div>'}).join('')+'</div></section>').join(''):'<p class="empty">図がありません。解析の out/ に PNG か SVG を保存して labkit gallery を回してください。</p>';
+main.innerHTML=keys.length?keys.map(k=>'<section class="grp"><h2>'+esc(k)+'</h2><div class="grid">'+g[k].map(i=>{const f=shown[i];return '<div class="fig"><img loading="lazy" src="'+esc(f.src)+'" alt="'+esc(f.name)+'" data-i="'+i+'"><div class="m"><span>'+esc(f.name)+'</span><a class="mono" href="analyses_viewer.html#'+esc(f.ana)+'">'+esc(f.ana)+'</a><span class="q">'+esc(f.question)+'</span><span><span class="st st-'+esc(f.status)+'">'+esc(f.status)+'</span> '+ck(f.check)+' '+(f.pdf?'<a href="'+esc(f.pdf)+'">PDF</a>':'')+'</span></div></div>'}).join('')+'</div></section>').join(''):'<p class="empty">図がありません。解析の out/ に PNG か SVG を保存して labkit gallery を回してください。</p>';
 main.querySelectorAll('img').forEach(im=>im.onclick=()=>open_(+im.dataset.i))}
 let cur=-1;function open_(i){cur=(i+shown.length)%shown.length;const f=shown[cur];lbi.src=f.src;lbc.innerHTML=esc(f.name)+' · <a href="analyses_viewer.html#'+esc(f.ana)+'">'+esc(f.ana)+'</a><br>'+esc(f.question)+' <span class="mono">('+(cur+1)+'/'+shown.length+'　← → で送る、Esc で閉じる)</span>';lb.classList.add('on')}
 lb.onclick=e=>{if(e.target===lb)lb.classList.remove('on')};
@@ -214,7 +220,7 @@ aside details{margin:2px 0}aside summary{cursor:pointer;font-weight:700;padding:
 .lin .lk{font-size:11.5px;color:var(--mut)}
 .it{display:block;padding:2px 6px;border-radius:4px;text-decoration:none;color:var(--fg);font-size:12.5px}
 .it:hover{background:var(--wash)}.it.cur{background:var(--fg);color:var(--bg)}
-.it.rejected{text-decoration:line-through;opacity:.7}
+.it.rejected{text-decoration:line-through;opacity:.7}.it.superseded{opacity:.6}
 section#d{padding:16px 24px;min-width:0}section#d h2{font-size:16px;margin:4px 0 8px}
 table{border-collapse:collapse;font-size:12.5px;width:100%}td,th{border-bottom:1px solid var(--rule);padding:4px 8px;text-align:left;vertical-align:top}
 th{color:var(--mut);font-weight:400;white-space:nowrap}.tw{overflow-x:auto}
@@ -229,13 +235,15 @@ const D=__DATA__;const A=D.analyses;const byId=Object.fromEntries(A.map(a=>[a.id
 const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 function tree(f){const g={};A.filter(a=>!f||(a.id+' '+a.question).toLowerCase().includes(f)).forEach(a=>{(a.samples.length?a.samples:['（試料なし）']).forEach(s=>{g[s]=g[s]||{};(g[s][a.lineage]=g[s][a.lineage]||[]).push(a)})});
 cnt.textContent=A.length+' 件';
-tree_.innerHTML=Object.keys(g).sort().map(s=>'<details open><summary>'+esc(s)+' <span class="mono">('+Object.values(g[s]).flat().length+')</span></summary>'+Object.values(g[s]).sort((x,y)=>x[0].created<y[0].created?1:-1).map(L=>{L.sort((x,y)=>x.id<y.id?-1:1);return '<div class="lin"><div class="lk">'+esc(L[L.length-1].question.slice(0,40))+'</div>'+L.map(a=>'<a class="it '+esc(a.status)+'" href="#'+esc(a.id)+'">'+esc(a.id.replace(/^ana-/,''))+' <span class="st st-'+esc(a.status)+'">'+esc(a.status)+'</span></a>').join('')+'</div>'}).join('')+'</details>').join('')||'<p>解析がまだありません。</p>';mark()}
+tree_.innerHTML=Object.keys(g).sort().map(s=>'<details open><summary>'+esc(s)+' <span class="mono">('+Object.values(g[s]).flat().length+')</span></summary>'+Object.values(g[s]).sort((x,y)=>x[0].created<y[0].created?1:-1).map(L=>{L.sort((x,y)=>x.id<y.id?-1:1);return '<div class="lin"><div class="lk">'+esc(L[L.length-1].question.slice(0,40))+'</div>'+L.map(a=>'<a class="it '+esc(a.state)+'" href="#'+esc(a.id)+'">'+esc(a.id.replace(/^ana-/,''))+' <span class="st st-'+esc(a.state)+'">'+esc(a.state)+'</span> '+ck(a.check)+'</a>').join('')+'</div>'}).join('')+'</details>').join('')||'<p>解析がまだありません。</p>';mark()}
 const tree_=document.getElementById('tree');
 function kv(o){if(!o||typeof o!=='object')return esc(o??'');return '<dl>'+Object.entries(o).map(([k,v])=>'<dt>'+esc(k)+'</dt><dd class="mono">'+esc(typeof v==='object'?JSON.stringify(v):v)+'</dd>').join('')+'</dl>'}
+const CK={ok:'検証済み',caution:'要注意',error:'誤りあり'};const ck=c=>c?'<span class="ck ck-'+esc(c)+'">'+CK[c]+'</span>':'';
 function link(id){return id?'<a class="mono" href="#'+esc(id)+'">'+esc(id)+'</a>':'—'}
 function show(id){const a=byId[id];if(!a)return;
-d.innerHTML='<h2>'+esc(a.id)+' <span class="st st-'+esc(a.status)+'">'+esc(a.status)+'</span></h2><p>'+esc(a.question)+'</p>'+
+d.innerHTML='<h2>'+esc(a.id)+' <span class="st st-'+esc(a.state)+'">'+esc(a.state)+'</span> '+ck(a.check)+'</h2><p>'+esc(a.question)+'</p>'+
 '<dl><dt>作成</dt><dd>'+esc(a.created)+'</dd><dt>手順</dt><dd class="mono">'+esc(a.procedure)+'</dd><dt>前の版</dt><dd>'+link(a.supersedes)+'</dd><dt>次の版</dt><dd>'+link(a.superseded_by)+'</dd><dt>元にした解析</dt><dd>'+link(a.based_on)+'</dd><dt>フォルダ</dt><dd><a class="mono" href="'+esc(a.dir)+'">'+esc(a.dir.replace(/^\.\.\//,''))+'</a></dd></dl>'+
+'<h3>検証</h3>'+(a.checks.length?'<div class="tw"><table><tr><th>日付</th><th>結果</th><th>やり方</th><th>誰が</th><th>メモ</th></tr>'+a.checks.map(c=>'<tr><td>'+esc((c.date||'').slice(0,10))+'</td><td>'+ck(c.result)+'</td><td>'+esc(c.method)+'</td><td>'+esc(c.by)+'</td><td>'+esc(c.note)+(c.report?' <span class="mono">'+esc(c.report)+'</span>':'')+'</td></tr>').join('')+'</table></div>':'<p>まだ検証の記録が無い（labkit verify）。</p>')+
 '<h3>パラメータ</h3>'+kv(a.params)+'<h3>結果</h3>'+kv(a.results)+
 (a.figs.length?'<h3>図</h3><div class="figs">'+a.figs.map(f=>'<a href="'+esc(f.src)+'"><img loading="lazy" src="'+esc(f.src)+'" alt="'+esc(f.name)+'"></a>').join('')+'</div>':'')+
 '<h3>入力の測定（'+a.inputs.length+'）</h3><div class="tw"><table><tr><th>meas_id</th><th>日付</th><th>試料</th><th>熱履歴</th><th>状態</th><th>ファイル</th></tr>'+a.inputs.map(i=>'<tr><td class="mono">'+esc(i.id)+'</td><td>'+esc(i.date)+'</td><td>'+esc(i.sample)+'</td><td class="mono">'+esc(i.thermal_history)+'</td><td>'+esc(i.status)+'</td><td>'+(i.path?'<a class="mono" href="../'+esc(i.path)+'">'+esc(i.path.split('/').pop())+'</a>':'台帳に無い')+'</td></tr>').join('')+'</table></div>'+

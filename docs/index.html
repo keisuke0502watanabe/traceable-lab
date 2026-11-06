@@ -1,0 +1,663 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>辿れる研究フォルダ</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&family=Shippori+Mincho+B1:wght@600;800&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: 方眼紙の実験ノート。左に目次（デスクトップでは固定）、右に 720px の本文。色は多形の三色（α 青・β′ 赤・β 緑）を役割に割り当てる */
+:root{
+  --paper:#f5f8f7; --sheet:#ffffff; --ink:#16232a; --muted:#56676e; --rule:#d3dedb; --grid:#e6eeec;
+  --red:#b8452a; --blue:#1462a8; --green:#2f8f6b; --wash-red:#f8e9e4; --wash-blue:#e5eef8; --wash-green:#e3f2ec;
+  --code-bg:#eef3f1;
+  --f-display:"Shippori Mincho B1","Hiragino Mincho ProN","Yu Mincho",serif;
+  --f-body:"BIZ UDPGothic","Hiragino Sans","Yu Gothic",system-ui,sans-serif;
+  --f-mono:"JetBrains Mono","SFMono-Regular",Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --paper:#11191c; --sheet:#172226; --ink:#e2ebe8; --muted:#97a9ae; --rule:#2c3b40; --grid:#1a2629;
+  --red:#e2795d; --blue:#6ea9e3; --green:#5ec49c; --wash-red:#2e1d18; --wash-blue:#17263a; --wash-green:#16302a;
+  --code-bg:#0d1416; color-scheme:dark }}
+:root[data-theme="dark"]{
+  --paper:#11191c; --sheet:#172226; --ink:#e2ebe8; --muted:#97a9ae; --rule:#2c3b40; --grid:#1a2629;
+  --red:#e2795d; --blue:#6ea9e3; --green:#5ec49c; --wash-red:#2e1d18; --wash-blue:#17263a; --wash-green:#16302a;
+  --code-bg:#0d1416; color-scheme:dark }
+
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+@media (prefers-reduced-motion: reduce){html{scroll-behavior:auto}}
+body{
+  background-color:var(--paper);
+  background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);
+  background-size:24px 24px;
+  color:var(--ink); font-family:var(--f-body); font-size:16px; line-height:1.85;
+  padding-left:max(16px,env(safe-area-inset-left,0px)); padding-right:max(16px,env(safe-area-inset-right,0px));
+}
+a{color:var(--blue)}
+a:focus-visible,button:focus-visible,summary:focus-visible{outline:2px solid var(--blue);outline-offset:2px;border-radius:3px}
+.shell{max-width:1120px;margin:0 auto;display:grid;grid-template-columns:220px minmax(0,1fr);gap:48px;padding-block:40px 96px}
+@media (max-width:900px){.shell{grid-template-columns:minmax(0,1fr);gap:16px;padding-block:20px 64px}}
+
+/* 目次 */
+nav.toc{position:sticky;top:calc(env(safe-area-inset-top,0px) + 24px);align-self:start;font-size:13.5px;line-height:1.6}
+nav.toc .label{font-family:var(--f-mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:8px}
+nav.toc ol{list-style:none;margin:0;padding:0;display:grid;gap:2px;counter-reset:t}
+nav.toc li a{display:grid;grid-template-columns:2.2em 1fr;color:var(--ink);text-decoration:none;padding:4px 6px;border-radius:4px}
+nav.toc li a:hover{background:var(--sheet)}
+nav.toc li a span{font-family:var(--f-mono);color:var(--muted);font-size:12px}
+nav.toc details summary{display:none}
+@media (max-width:900px){
+  nav.toc{position:static}
+  nav.toc details{background:var(--sheet);border:1px solid var(--rule);border-radius:6px;padding:10px 14px}
+  nav.toc details summary{display:block;cursor:pointer;font-weight:700}
+  nav.toc .label{display:none}
+  nav.toc ol{margin-top:8px}
+}
+@media (min-width:901px){nav.toc details:not([open]) > ol{display:grid}}
+
+main{min-width:0;max-width:760px}
+header.hero{padding-bottom:32px;border-bottom:2px solid var(--ink);margin-bottom:8px}
+.eyebrow{font-family:var(--f-mono);font-size:12px;letter-spacing:.1em;color:var(--red)}
+h1{font-family:var(--f-display);font-weight:800;font-size:clamp(30px,5.2vw,48px);line-height:1.3;margin:10px 0 16px;text-wrap:balance}
+.lede{font-size:17px;color:var(--ink);max-width:40em}
+h2{font-family:var(--f-display);font-weight:800;font-size:clamp(23px,3.4vw,30px);line-height:1.4;margin:0 0 6px;text-wrap:balance}
+h3{font-size:17px;margin:28px 0 6px}
+section{padding-top:56px;scroll-margin-top:16px}
+section > .num{font-family:var(--f-mono);font-size:12px;color:var(--muted);letter-spacing:.08em}
+section p{margin:10px 0}
+.sub{color:var(--muted);margin-top:0}
+
+/* 証拠の鎖 */
+.chain{margin:28px 0 8px;display:flex;flex-wrap:wrap;align-items:stretch;gap:0;font-size:13px}
+.link{background:var(--sheet);border:1px solid var(--rule);padding:10px 12px;min-width:0;flex:1 1 120px;display:flex;flex-direction:column;gap:4px}
+.link b{font-size:13.5px}
+.link code{font-size:11.5px;word-break:break-all;background:none;padding:0;color:var(--muted)}
+.link.first{border-left:4px solid var(--red)} .link.last{border-right:4px solid var(--green)}
+.arrow{display:flex;align-items:center;padding:0 4px;color:var(--muted);font-family:var(--f-mono)}
+@media (max-width:640px){.chain{flex-direction:column}.arrow{justify-content:center;padding:2px 0}.arrow::after{content:"↓"}.arrow span{display:none}}
+.caption{font-size:13px;color:var(--muted)}
+
+/* 凡例バッジ */
+.badges{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0}
+.badge{font-size:12.5px;padding:2px 10px;border-radius:999px;border:1px solid currentColor;white-space:nowrap}
+.b-any{color:var(--green);background:var(--wash-green)}
+.b-claude{color:var(--blue);background:var(--wash-blue)}
+.b-warn{color:var(--red);background:var(--wash-red)}
+.tag{display:inline-block;font-size:11.5px;padding:0 8px;border-radius:999px;border:1px solid currentColor;vertical-align:2px;margin-left:6px;font-weight:400;white-space:nowrap}
+
+/* 原則 */
+ol.rules{list-style:none;padding:0;margin:20px 0;display:grid;gap:10px;counter-reset:r}
+ol.rules li{counter-increment:r;display:grid;grid-template-columns:44px minmax(0,1fr);gap:12px;background:var(--sheet);border:1px solid var(--rule);padding:14px 16px 14px 0}
+ol.rules li::before{content:counter(r);font-family:var(--f-display);font-weight:800;font-size:26px;text-align:right;color:var(--red);line-height:1.2}
+ol.rules b{display:block}
+
+/* コード */
+code{font-family:var(--f-mono);font-size:.88em;background:var(--code-bg);padding:1px 5px;border-radius:3px}
+.code{position:relative;margin:14px 0}
+.code pre{margin:0;background:var(--code-bg);border:1px solid var(--rule);border-radius:6px;padding:14px 16px;overflow-x:auto;font-family:var(--f-mono);font-size:13px;line-height:1.65}
+.code pre code{background:none;padding:0;font-size:inherit}
+.code .cap{font-family:var(--f-mono);font-size:11px;color:var(--muted);padding:0 2px 4px;display:flex;justify-content:space-between;align-items:end;gap:8px}
+.copy{font:inherit;font-size:11px;background:var(--sheet);color:var(--ink);border:1px solid var(--rule);border-radius:4px;padding:2px 8px;cursor:pointer}
+.copy:hover{border-color:var(--ink)}
+.c{color:var(--muted)} .k{color:var(--red)} .s{color:var(--green)} .d{color:var(--blue)}
+
+/* 表 */
+.tbl{overflow-x:auto;margin:14px 0;border:1px solid var(--rule);border-radius:6px;background:var(--sheet)}
+table{border-collapse:collapse;width:100%;font-size:13.5px;line-height:1.55}
+th,td{text-align:left;padding:8px 12px;border-bottom:1px solid var(--rule);vertical-align:top}
+th{font-size:12px;color:var(--muted);font-weight:700;white-space:nowrap}
+tr:last-child td{border-bottom:0}
+td code{white-space:nowrap}
+td.mono{font-family:var(--f-mono);font-size:12px;white-space:nowrap;font-variant-numeric:tabular-nums}
+
+/* 注記 */
+.note{border-left:3px solid var(--blue);background:var(--wash-blue);padding:10px 14px;margin:16px 0;font-size:14.5px}
+.note.warn{border-color:var(--red);background:var(--wash-red)}
+.note.ok{border-color:var(--green);background:var(--wash-green)}
+.note b:first-child{display:block;font-size:13px;letter-spacing:.04em}
+
+/* 2 列 */
+.pair{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:14px 0}
+@media (max-width:640px){.pair{grid-template-columns:minmax(0,1fr)}}
+.pair > div{background:var(--sheet);border:1px solid var(--rule);padding:12px 16px;min-width:0}
+.pair h4{margin:0 0 4px;font-size:14.5px}
+.pair p,.pair ul{font-size:14px;margin:4px 0}
+.pair ul{padding-left:1.2em}
+
+/* ギャラリー模型 */
+.gal{background:var(--sheet);border:1px solid var(--rule);border-radius:8px;padding:14px;margin:16px 0}
+.gal .bar{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:12px;font-size:12.5px}
+.gal .bar span{color:var(--muted);margin-right:4px}
+.chip{font:inherit;font-size:12.5px;border:1px solid var(--rule);background:var(--paper);color:var(--ink);border-radius:999px;padding:2px 10px;cursor:pointer}
+.chip[aria-pressed="true"]{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+.gal .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+.card{border:1px solid var(--rule);border-radius:6px;overflow:hidden;background:var(--paper);font-size:11.5px;line-height:1.45}
+.card svg{display:block;width:100%;height:auto;background:var(--sheet)}
+.card .meta{padding:6px 8px;display:grid;gap:2px}
+.card .id{font-family:var(--f-mono);font-size:10.5px;color:var(--muted);word-break:break-all}
+.st{font-size:10.5px;border-radius:3px;padding:0 5px;justify-self:start}
+.st-used{background:var(--wash-green);color:var(--green)}
+.st-tried{background:var(--wash-blue);color:var(--blue)}
+.st-rejected{background:var(--wash-red);color:var(--red)}
+.gal .count{font-family:var(--f-mono);font-size:11.5px;color:var(--muted);margin-top:8px}
+
+/* ツリー */
+.tree{font-family:var(--f-mono);font-size:12.5px;line-height:1.7}
+.tree .dir{color:var(--blue);font-weight:600}
+.tree .gen{color:var(--green)}
+.tree .lock{color:var(--red);font-weight:600}
+
+/* 手順 */
+ol.steps{padding-left:1.4em;margin:12px 0}
+ol.steps li{margin:8px 0;padding-left:4px}
+ol.steps li::marker{font-family:var(--f-mono);color:var(--red);font-weight:600}
+
+.prompt{background:var(--sheet);border:1px dashed var(--blue);border-radius:6px;padding:10px 14px;margin:10px 0;font-size:14.5px}
+.prompt::before{content:"Claude への頼み方";display:block;font-family:var(--f-mono);font-size:10.5px;letter-spacing:.08em;color:var(--blue);margin-bottom:2px}
+
+footer{margin-top:72px;padding-top:16px;border-top:1px solid var(--rule);font-size:13px;color:var(--muted)}
+</style>
+
+<div class="shell">
+<nav class="toc" aria-label="目次">
+  <details id="tocd" open>
+    <summary>目次</summary>
+    <div class="label">Contents</div>
+    <ol>
+      <li><a href="#about"><span>00</span>この教材について</a></li>
+      <li><a href="#rules"><span>01</span>五つの約束</a></li>
+      <li><a href="#map"><span>02</span>フォルダの地図</a></li>
+      <li><a href="#project"><span>03</span>一つのプロジェクトの中</a></li>
+      <li><a href="#ledger"><span>04</span>測定台帳</a></li>
+      <li><a href="#analyses"><span>05</span>解析フォルダ</a></li>
+      <li><a href="#code"><span>06</span>DSC・XRD・SAXS のコード</a></li>
+      <li><a href="#verify"><span>07</span>検証する</a></li>
+      <li><a href="#gallery"><span>08</span>図ギャラリー</a></li>
+      <li><a href="#notes"><span>09</span>日誌と申し送り</a></li>
+      <li><a href="#slides"><span>10</span>スライドとポスター</a></li>
+      <li><a href="#paper"><span>11</span>論文の作業フォルダ</a></li>
+      <li><a href="#claude"><span>12</span>Claude との分担</a></li>
+      <li><a href="#start"><span>13</span>明日から始める</a></li>
+    </ol>
+  </details>
+</nav>
+
+<main>
+<header class="hero">
+  <div class="eyebrow">LAB NOTEBOOK FOR THE DATA ERA · 熱分析・X 線回折・小角散乱</div>
+  <h1>論文の図から、生データまで辿れる研究フォルダ</h1>
+  <p class="lede">DSC、XRD、SAXS の測定は増え続けます。半年後に「この図はどの測定から、どの条件で描いたのか」と聞かれたとき、すぐ答えられる形でフォルダを組むための教材です。実際に一年近く運用して、測定約 1,900 件と解析約 400 件を回した仕組みを、一般化して紹介します。</p>
+
+  <div class="chain" role="img" aria-label="根拠の鎖: 論文やスライドの図から、解析ID、manifest、測定ID、台帳のパスを経て、生データのファイルまで辿る">
+    <div class="link first"><b>論文・スライドの図</b><code>Fig. 5（脚注に ana_id）</code></div>
+    <div class="arrow"><span>→</span></div>
+    <div class="link"><b>解析フォルダ</b><code>analyses/ana-20250914-…/</code></div>
+    <div class="arrow"><span>→</span></div>
+    <div class="link"><b>manifest.json</b><code>inputs: [meas_id, …]</code></div>
+    <div class="arrow"><span>→</span></div>
+    <div class="link"><b>測定台帳</b><code>ledger.csv の path 列</code></div>
+    <div class="arrow"><span>→</span></div>
+    <div class="link last"><b>生データ</b><code>DATA/dsc/….txt</code></div>
+  </div>
+  <p class="caption">この教材の中心はこの鎖です。どの段も機械で読める形で残すので、逆向き（この測定を使った解析はどれか）にも辿れます。</p>
+</header>
+
+<section id="about">
+  <div class="num">00</div>
+  <h2>この教材について</h2>
+  <p class="sub">対象は、実験データを自分で解析して論文や発表にまとめる大学院生・研究者です。</p>
+  <p>仕組みの半分は、ただのフォルダ構成と CSV です。どのエディタやプログラムでも同じように使えます。残りの半分は、AI のコーディング助手（ここでは Claude Code）に作業を任せるときの約束ごとです。人に引き継ぐときにもそのまま役に立ちます。各節に次の印を付けました。</p>
+  <div class="badges">
+    <span class="badge b-any">誰でも使える</span>
+    <span class="badge b-claude">Claude があると楽になる</span>
+    <span class="badge b-warn">やってはいけないこと</span>
+  </div>
+  <p>例に出す試料名・ID・数値は説明用に作ったものです。実際のデータは含みません。</p>
+</section>
+
+<section id="rules">
+  <div class="num">01</div>
+  <h2>五つの約束 <span class="tag b-any">誰でも使える</span></h2>
+  <p class="sub">仕組みの細部は変えてかまいません。この五つだけは守ります。</p>
+  <ol class="rules">
+    <li><div><b>生データは凍結する</b>測定ファイルは置いたら動かさない、名前も変えない。分類したくなったら台帳の列（タグ・状態・メモ）を書き換えます。フォルダを動かすと、過去の解析が指していたパスが壊れます。</div></li>
+    <li><div><b>一行が一測定の台帳を持つ</b>測定ごとに一行の <code>ledger.csv</code>。日付・試料・質量・熱履歴・ファイルのパスが並びます。台帳はスクリプトが生データから作り直せる「生成物」です。</div></li>
+    <li><div><b>一つの問いに一つの解析フォルダ</b>「Ta が誘導時間をどう決めるか」のような問いごとに <code>analyses/ana-日付-名前/</code> を作り、入力の測定 ID・パラメータ・結果・図を中に閉じ込めます。</div></li>
+    <li><div><b>消さずに、状態で残す</b>失敗した解析も消しません。<code>status: rejected</code> にして残し、やり直しは新しいフォルダを作って前の ID を <code>supersedes</code> に書きます。捨てた理由は、あとで一番役に立つ記録です。</div></li>
+    <li><div><b>生成物は手で直さない</b>台帳・ギャラリー・スライド・論文の図は、スクリプトから作り直せるようにしておきます。直すのは元（スクリプトや原稿のテキスト）で、出力された .pptx や .png は直接いじりません。</div></li>
+  </ol>
+</section>
+
+<section id="map">
+  <div class="num">02</div>
+  <h2>フォルダの地図 <span class="tag b-any">誰でも使える</span></h2>
+  <p>まず、研究のファイル全体を内容別に分けます。クラウドの種類や年度で分けると、同じものが何か所にも散らばります。番号は並び順を固定するためです。</p>
+<div class="code"><div class="cap"><span>~/Research と ~/Projects</span></div><pre class="tree">~/Research/
+  <span class="dir">0-受け皿/</span>        置き場所に迷ったもの。週に一度振り分ける
+  <span class="dir">1-執筆/</span>          原稿・投稿論文・査読。業績/ は自分の論文の最終版
+  <span class="dir">2-発表/</span>          発表・講義。1-conference/年/発表名/
+  <span class="dir">3-文献/</span>          文献 PDF（文献管理ソフトから参照する）
+  <span class="dir">4-データ/</span>        実験のプロジェクト。ここに台帳と解析がある（次の節）
+  <span class="dir">5-ラボ・教育/</span>    研究室・学生・実習
+  <span class="dir">6-事務・研究費/</span>  申請書・執行書類
+  <span class="dir">9-アーカイブ/</span>    古いもの。中は整理しない
+  README.md        <span class="c">← 地図の正本。置き場所とルールはここだけに書く</span>
+  MOVES.md         <span class="c">← 動かしたときの「元の場所 → 新しい場所」</span>
+
+~/Projects/        <span class="c">← プログラムだけ。git で管理する</span>
+  tag-analysis/    <span class="c">計算ライブラリと解析スクリプト</span></pre></div>
+  <div class="pair">
+    <div><h4>README.md を地図にする</h4><p>どこに何を置くかを一枚に書き、ルールを変えたらここを直します。人に聞かれたらこのファイルを渡します。</p></div>
+    <div><h4>MOVES.md に移動を記録する</h4><p>古いパスが書かれたメモやスクリプトを見つけたとき、この表で新しい場所が分かります。日時・元・先の三列で十分です。</p></div>
+  </div>
+  <div class="note warn"><b>やってはいけないこと</b>過去の発表のパワーポイントを新しい発表フォルダにコピーしない。使った正本の場所を <code>ref.md</code> にメモします。重複ファイルの一番の原因でした。ファイルは消さず、不要なら <code>_重複/</code> かアーカイブへ移します。</div>
+</section>
+
+<section id="project">
+  <div class="num">03</div>
+  <h2>一つのプロジェクトの中 <span class="tag b-any">誰でも使える</span></h2>
+  <p>実験のプロジェクト（例：<code>4-データ/fat-crystal-project/</code>）は、次の形にそろえます。赤が凍結する場所、緑がスクリプトで作り直す生成物です。</p>
+<div class="code"><div class="cap"><span>プロジェクトの雛形</span></div><pre class="tree">fat-crystal-project/
+  <span class="lock">DATA/</span>               凍結層。新しい測定は装置/日付で足すだけ
+    dsc/  xrd/  saxs-beamline/
+  <span class="gen">ledger.csv</span>          測定台帳。一行 = 一測定（labkit ledger が作る）
+  <span class="gen">ledger_gaps.csv</span>     機械で埋まらなかった行の一覧（手で埋める宿題）
+  <span class="dir">analyses/</span>           一問い = 一フォルダ。平らに並べる。消さない
+    ana-20250914-ppp-avrami-ta45/
+      manifest.json  notes.md  out/
+  <span class="gen">analyses_index.csv</span>  全 manifest の一覧
+  <span class="dir">reports/</span>            人に見せるもの
+    <span class="gen">figure_gallery.html</span>   全解析の図のサムネイル一覧
+    <span class="gen">analyses_viewer.html</span>  解析の系譜をたどるビューア
+    index.csv             レポート ↔ ana_id の対応表
+    oral-conf-2025/  poster-conf-2025/
+  <span class="dir">Documents/</span>
+    manuscript-&lt;テーマ&gt;/    論文ごとの作業フォルダ（11 節）
+  <span class="dir">notes/</span>              日付ごとの短い日誌と、申し送り（HANDOFF）
+  <span class="dir">scratch/</span>            試行錯誤。月に一度空にしてよい
+  <span class="dir">tools/</span>              台帳・ギャラリーを作るこのプロジェクト専用のスクリプト
+  README.md           このプロジェクトの約束</pre></div>
+  <p>計算そのもの（ピーク検出、Avrami の当てはめ、XRD のピークフィット）は、プロジェクトの外の <code>~/Projects</code> にライブラリとして置きます。プロジェクトの <code>tools/</code> には、そのプロジェクトのファイル構成に依存するものだけを置きます。</p>
+</section>
+
+<section id="ledger">
+  <div class="num">04</div>
+  <h2>測定台帳 ledger.csv <span class="tag b-any">誰でも使える</span></h2>
+  <p class="sub">エクセルで手書きする台帳ではなく、生データのファイルから毎回作り直す台帳です。</p>
+  <p>DSC のテキスト出力には、測定日時・試料名・質量・温度プログラムが書いてあります。XRD やビームラインのデータにも、ヘッダや温度ログがあります。これを読んで一行にまとめるスクリプト（<code>labkit ledger</code>。自分の装置の形式は reader を一つ書いて足す）があれば、測定が増えても台帳は数秒で作り直せます。</p>
+
+  <h3>二種類の ID</h3>
+  <div class="pair">
+    <div><h4><code>meas_id</code> は測定</h4><p>ファイルの中身（測定日時・走査番号）から決めます。ファイル名から決めると、名前を変えたときに ID が変わってしまいます。</p><p><code>dsc-20250414-095225</code><br><code>xrd-20250613-143901</code><br><code>sr-202507-PPP-3_75-57_48</code></p></div>
+    <div><h4><code>ana_id</code> は解析</h4><p>日付と短い名前。測定と解析は多対多で、対応は解析側の manifest が持ちます。</p><p><code>ana-20250914-ppp-avrami-ta45</code><br><code>ana-20250916-c8tag-t-ind-sensitivity</code></p></div>
+  </div>
+
+  <h3>列の例</h3>
+  <div class="tbl"><table>
+    <thead><tr><th>meas_id</th><th>instr</th><th>sample</th><th>mass_mg</th><th>thermal_history</th><th>Ta_C</th><th>path</th><th>status</th><th>tags</th><th>note</th></tr></thead>
+    <tbody>
+      <tr><td class="mono">dsc-20250429-132754</td><td>dsc</td><td>C8TAG</td><td class="mono">4.12</td><td class="mono">25→50@10 &gt; hold50/5min &gt; 50→-20@15 &gt; hold-20/30min &gt; -20→20@5</td><td class="mono">-20</td><td class="mono">DATA/dsc/2025-04/…txt</td><td>ok</td><td>ta-scan</td><td></td></tr>
+      <tr><td class="mono">dsc-20250429-154927</td><td>dsc</td><td>C8TAG</td><td class="mono">4.24</td><td class="mono">25→50@10 &gt; hold50/5min &gt; 50→-25@15 &gt; hold-25/30min &gt; -25→20@5</td><td class="mono">-25</td><td class="mono">DATA/dsc/2025-04/…txt</td><td>bad</td><td></td><td>パンの蓋が浮いた</td></tr>
+      <tr><td class="mono">xrd-20250613-143901</td><td>xrd</td><td>PPP</td><td></td><td class="mono">hold80 &gt; to48@15 &gt; hold48/30min &gt; to79@2</td><td class="mono">48</td><td class="mono">DATA/xrd/2025-06/…ras</td><td>ok</td><td>iso</td><td></td></tr>
+    </tbody>
+  </table></div>
+  <ul>
+    <li><b>固定する列は三つ</b>：<code>meas_id</code>・<code>path</code>・<code>thermal_history</code>。ほかの列は増やしても並べ替えてもかまいません。</li>
+    <li><b>手で書く列</b>（<code>status</code>・<code>tags</code>・<code>note</code>）は、作り直しても消えないようにスクリプトで引き継ぎます。</li>
+    <li><b>熱履歴は短い記法で一行に</b>。<code>A→B@rate</code> が昇降温、<code>holdT/Nmin</code> が等温保持。これで「Ta が 30–50 °C の PPP の DSC」を一行で選べます。</li>
+    <li><b>同じ測定のコピー</b>（バックアップ、zip の展開など）は行を持たせず、正とした行の <code>duplicates</code> 列にパスを並べます。</li>
+    <li><b>機械で埋まらなかった行</b>は <code>ledger_gaps.csv</code> に出します。ここが「人が実験ノートを見て埋める」宿題の一覧になります。</li>
+  </ul>
+<div class="code"><div class="cap"><span>Python から使う</span><button class="copy" type="button">コピー</button></div><pre><code><span class="k">from</span> labkit <span class="k">import</span> ledger
+L = ledger.load()                     <span class="c"># cwd から上へ ledger.csv を探す</span>
+rows = L.select(instr=<span class="s">"dsc"</span>, sample=<span class="s">"PPP"</span>, Ta_C=(<span class="d">30</span>, <span class="d">50</span>))
+<span class="k">for</span> r <span class="k">in</span> rows:
+    print(r[<span class="s">"meas_id"</span>], r[<span class="s">"thermal_history"</span>], L.resolve(r))</code></pre></div>
+</section>
+
+<section id="analyses">
+  <div class="num">05</div>
+  <h2>解析フォルダ analyses/ <span class="tag b-any">誰でも使える</span></h2>
+  <p>解析を始めるときにフォルダを作り、終わるときに状態を書きます。中身は三つだけです。</p>
+  <div class="pair">
+    <div><h4>manifest.json</h4><p>問い・入力の meas_id・手順・パラメータ・結果・状態・系譜。機械が読む部分。</p></div>
+    <div><h4>notes.md と out/</h4><p>notes.md は「問い／分かったこと／次」の三段。out/ に図・表・CSV。</p></div>
+  </div>
+<div class="code"><div class="cap"><span>analyses/ana-20250914-ppp-avrami-ta45/manifest.json</span><button class="copy" type="button">コピー</button></div><pre><code>{
+  <span class="d">"ana_id"</span>: <span class="s">"ana-20250914-ppp-avrami-ta45"</span>,
+  <span class="d">"question"</span>: <span class="s">"PPP の Ta = 45 °C 付近で Avrami 指数 n は Ta にどう依存するか"</span>,
+  <span class="d">"inputs"</span>: [<span class="s">"dsc-20250429-132754"</span>, <span class="s">"dsc-20250429-154927"</span>],
+  <span class="d">"procedure"</span>: <span class="s">"tools/avrami.py"</span>,
+  <span class="d">"params"</span>: { <span class="d">"t0Mode"</span>: <span class="s">"induction"</span>, <span class="d">"inductionFrac"</span>: <span class="d">0.05</span>, <span class="d">"Xrange"</span>: [<span class="d">0.2</span>, <span class="d">0.8</span>] },
+  <span class="d">"results"</span>: { <span class="d">"n"</span>: <span class="d">2.8</span>, <span class="d">"n_ci95"</span>: [<span class="d">2.6</span>, <span class="d">3.0</span>] },
+  <span class="d">"status"</span>: <span class="s">"used"</span>,             <span class="c">// used / tried / rejected</span>
+  <span class="d">"supersedes"</span>: <span class="s">"ana-20250913-ppp-avrami-ta45"</span>,
+  <span class="d">"based_on"</span>: [],                <span class="c">// 別の解析の出力を入力にしたとき</span>
+  <span class="d">"inputs_sha1"</span>: { … },  <span class="d">"code"</span>: { … },  <span class="c">// 作った時点の指紋（07 節の検証で使う）</span>
+  <span class="d">"checks"</span>: []                   <span class="c">// 検証の記録</span>
+}</code></pre></div>
+<div class="code"><div class="cap"><span>いつもの流れ</span><button class="copy" type="button">コピー</button></div><pre><code><span class="k">from</span> labkit <span class="k">import</span> ledger, analysis
+L = ledger.load()
+rows = L.select(instr=<span class="s">"dsc"</span>, sample=<span class="s">"PPP"</span>, Ta_C=(<span class="d">40</span>, <span class="d">50</span>))
+A = analysis.new(L, <span class="s">"ppp-avrami-ta45"</span>, question=<span class="s">"…"</span>, inputs=rows,
+                 procedure=<span class="s">"tools/avrami.py"</span>, params={<span class="s">"t0Mode"</span>: <span class="s">"induction"</span>})
+<span class="c"># … 計算。図は A.out("xt_curve.png") に保存する</span>
+A.finish(results={<span class="s">"n"</span>: <span class="d">2.8</span>}, status=<span class="s">"used"</span>)</code></pre></div>
+<div class="code"><div class="cap"><span>根拠を辿る・一覧を作る</span><button class="copy" type="button">コピー</button></div><pre><code>labkit trace ana-20250914-ppp-avrami-ta45   <span class="c"># 図 → 測定 → 生ファイル</span>
+labkit index                                <span class="c"># analyses_index.csv を作り直す</span></code></pre></div>
+  <h3>既にある解析を後から登録する</h3>
+  <p>この仕組みを入れる前に作ったまとめ（生データのフォルダの中にある古いレポートなど）は動かしません。<code>analyses/</code> に manifest と notes だけを置き、<code>external_dir</code> で実体を指します。これで古い成果も同じ鎖に入ります。</p>
+  <div class="note"><b>規約も解析として残す</b>「誘導時間の閾値を 1 % ではなく 5 % にする」のような決めごとは、その根拠になった比較を一つの解析フォルダにして、README に「決めた日付と ana_id」を書きます。数か月後に「なぜ 5 % なのか」と聞かれても、その解析を開けば答えられます。</div>
+</section>
+
+<section id="code">
+  <div class="num">06</div>
+  <h2>DSC・XRD・SAXS のコード <span class="tag b-any">誰でも使える</span></h2>
+  <p>測定の種類が増えると、似た計算があちこちのスクリプトにコピーされ、少しずつ食い違っていきます。そこで役割を三層に分けました。</p>
+  <div class="tbl"><table>
+    <thead><tr><th>層</th><th>置き場所</th><th>中身</th></tr></thead>
+    <tbody>
+      <tr><td><b>ライブラリ</b></td><td><code>~/Projects/…/&lt;研究室のライブラリ&gt;/</code></td><td>数値を出す関数はここにしか置かない。<br><code>dsc.parse</code>（装置ごとのテキスト → 共通の行）、<code>dsc.peaks</code>（外挿オンセット・ΔH）、<code>dsc.avrami</code>、<code>xrd.parse</code>（.ras / 1D .dat / .xrdml）、<code>xrd.peakfit</code>（pseudo-Voigt、d・q、Scherrer）、<code>xrd.phase</code>（長面間隔とサブセル線から α / β′ / β）、<code>kinetics</code>（DSC と XRD 共通の Avrami）</td></tr>
+      <tr><td><b>解析スクリプト</b></td><td><code>skills/…/scripts/</code></td><td>ライブラリを呼んで図や表を作る。一本のスクリプトが一つの解析フォルダに書く</td></tr>
+      <tr><td><b>判断と規約</b></td><td>Markdown</td><td>ベースラインの取り方、t₀ の定義、相の判定の閾値。コードではなく文章で、日付と根拠の ana_id つきで残す</td></tr>
+    </tbody>
+  </table></div>
+  <h3>古いツールの結果を「全桁一致」で移す</h3>
+  <p>以前使っていた解析ツール（ブラウザで動く DSC/XRD アナライザなど）からライブラリへ関数を移すときは、古いツールが保存していた結果を新しい関数で再計算し、一致することをテストにしました。移植で数値が変わっていないことを、後から誰でも確かめられます。</p>
+<div class="code"><div class="cap"><span>回帰テスト</span><button class="copy" type="button">コピー</button></div><pre><code>python3 tests/test_dsc_regression.py    <span class="c"># 保存済みのピーク 6 件を全桁で再現するか</span>
+python3 tests/test_xrd_regression.py    <span class="c"># 保存済みのピーク 73 本を再現するか</span>
+python3 tests/test_transient.py         <span class="c"># 合成データ（n = 2 と分かっている曲線）でのテスト</span></code></pre></div>
+  <h3>合成データで方法の癖を測る</h3>
+  <p>答えが分かっている合成曲線（例：n = 2 の Avrami 曲線にノイズと装置の過渡応答を足したもの）を、実データと同じ手順に通します。「この規約だと n が 1.4 まで下がって見える」と分かれば、報告するときに n を規約と一緒に書く理由になります。</p>
+  <div class="note"><b>装置ごとの注意を README に</b>熱履歴の記法、装置の温度ログの読み方（ログの一行目が系列の始まりか終わりか）、試料温度とプログラム温度の差など、一度調べて分かったことは README に一文で残します。同じ調査を二度しないためです。</div>
+</section>
+
+<section id="verify">
+  <div class="num">07</div>
+  <h2>検証する <span class="tag b-any">誰でも使える</span> <span class="tag b-claude">Claude</span></h2>
+  <p class="sub">解析が数百になると、小さなコードの誤りが下流の図や論文の数値にそのまま流れます。</p>
+  <p>回帰テストは「古いツールと同じ答えを出すか」を見ているだけで、答えが正しいかは見ていません。そこで検証を二段に分けます。機械で分かることは毎回自動で点検し、数値の正しさは節目ごとに生データからの検算で確かめます。</p>
+
+  <h3>1. 機械の点検（毎回）</h3>
+  <p>解析フォルダを作るとき、manifest に三つの指紋を残しておきます。入力ファイルの sha1、そのときの台帳の値、スクリプトの sha1 です。<code>labkit check</code> はこれといまを比べるだけなので、数秒で終わり、何も変えません。</p>
+  <div class="tbl"><table>
+    <thead><tr><th>見つけるもの</th><th>よくある原因</th></tr></thead>
+    <tbody>
+      <tr><td>生データが書き換わった・消えた</td><td>DATA の中で上書き保存した、フォルダを動かした</td></tr>
+      <tr><td>0 バイトのファイル、台帳に入らなかったファイル</td><td>書き出しや変換が途中で落ちた。黙って抜けるのがいちばん怖い</td></tr>
+      <tr><td>解析のあとで台帳の値が変わった</td><td>質量の打ち間違いを直した、測定を bad にした。古い値で計算した解析が残っている</td></tr>
+      <tr><td>解析のあとでスクリプトが直された</td><td>同じ結果になるかは、作り直さないと分からない</td></tr>
+      <tr><td>置き換え済みの版が used のまま</td><td>論文やスライドが古い版を引用している</td></tr>
+      <tr><td>上流に誤り・置き換えがある</td><td>別の解析の出力を入力にしている（based_on）</td></tr>
+    </tbody>
+  </table></div>
+<div class="code"><div class="cap"><span>点検（読むだけ）</span><button class="copy" type="button">コピー</button></div><pre><code>labkit check            <span class="c"># reports/check_report.md に 誤り・要注意・参考 で書く</span>
+labkit check --strict   <span class="c"># 誤りがあれば終了コード 1（投稿前の確認に）</span></code></pre></div>
+
+  <h3>2. 数値の検算（節目ごと）</h3>
+  <p>論文に出す前や、おかしな値に気づいたときに行います。</p>
+  <ol class="steps">
+    <li><b>点検中は何も直さない。</b>読むだけにして、直すのは順番を決めてから別の作業として行います。</li>
+    <li><b>範囲を領域に分ける。</b>台帳、ビューア、速度論、相の判定、論文の図、のように分けます。Claude なら領域ごとにサブエージェントへ並行で任せられます。</li>
+    <li><b>コードを読むだけで終わらせない。</b>生データから、解析とは別に書いたコードで同じ数値を出し直し、出力の CSV と突き合わせます。何本のうち何本が食い違ったかを数えます。</li>
+    <li><b>誤りの型を順に疑う。</b>並び順の取り違え、ファイル名の読み取り、補間で埋めた値、決め打ちの定数、片側だけの条件、表の結合のずれ、時刻の基準、途中で止めた測定。</li>
+    <li><b>判定は独立な指標で確かめる。</b>「結晶化しなかった」という判定なら、保持中の発熱と、続く昇温の融解熱の両方を見ます。</li>
+    <li><b>四つに分けて書く。</b>誤り（再現した）／要注意／問題なし／見ていないもの。「見ていないもの」を省かないことが、次の点検の出発点になります。</li>
+  </ol>
+<div class="code"><div class="cap"><span>点検メモと記録</span><button class="copy" type="button">コピー</button></div><pre><code>labkit audit segments     <span class="c"># notes/audit-segments_日付.md（誤り／要注意／問題なし／見ていない／直す順）</span>
+labkit verify ana-20250914-ppp-ta-scan --result error \
+    --method <span class="s">"生データから段の境界を出し直した"</span> --note <span class="s">"途中で止めたランで境界が前にずれる"</span>
+labkit downstream tools/segments.py   <span class="c"># 直したら作り直す解析を、上流から順に</span></code></pre></div>
+  <p>記録した結果は、ギャラリーとビューアに「検証済み」「要注意」「誤りあり」の印で出ます。誤りのある解析を元にした下流の解析は、<code>labkit check</code> で要注意として挙がります。直したら新しい版を supersedes つきで作り、古い版は rejected にして理由を残します。</p>
+  <div class="prompt">ビューアや解析に使ったコードの正しさを検証して。何も直さずに、生データから別のコードで出し直して比べて、誤り・要注意・問題なし・見ていないもの に分けて notes/audit に書いて。</div>
+  <div class="note"><b>実例</b>この運用で点検したところ、DSC の測定を段（昇温・保持・冷却）に切る関数が、予定の時間を比例配分していたため、途中で止めた測定でだけ境界をずらしていました。当たったのは数百本中の十数本です。テストは古いツールと同じ答えを出すので通っていました。生データからの検算でしか見つからない種類の誤りです。</div>
+</section>
+
+<section id="gallery">
+  <div class="num">08</div>
+  <h2>図ギャラリーと解析ビューア <span class="tag b-any">誰でも使える</span> <span class="tag b-claude">Claude</span></h2>
+  <p>解析が数百になると、「あの図どれだっけ」が一番の時間泥棒になります。全解析の <code>out/*.png</code> を一枚の HTML に並べる <code>figure_gallery.html</code> と、解析の系譜を木で見る <code>analyses_viewer.html</code> を、スクリプトで生成します。</p>
+
+  <div class="gal" id="gal">
+    <div class="bar" role="group" aria-label="試料で絞り込む"><span>試料</span>
+      <button class="chip" type="button" data-f="sample" data-v="all" aria-pressed="true">すべて</button>
+      <button class="chip" type="button" data-f="sample" data-v="C8TAG" aria-pressed="false">C8TAG</button>
+      <button class="chip" type="button" data-f="sample" data-v="PPP" aria-pressed="false">PPP</button>
+      <button class="chip" type="button" data-f="sample" data-v="C10TAG" aria-pressed="false">C10TAG</button>
+    </div>
+    <div class="bar" role="group" aria-label="状態で絞り込む"><span>状態</span>
+      <button class="chip" type="button" data-f="status" data-v="all" aria-pressed="true">すべて</button>
+      <button class="chip" type="button" data-f="status" data-v="used" aria-pressed="false">used</button>
+      <button class="chip" type="button" data-f="status" data-v="tried" aria-pressed="false">tried</button>
+      <button class="chip" type="button" data-f="status" data-v="rejected" aria-pressed="false">rejected</button>
+    </div>
+    <div class="grid" id="galgrid"></div>
+    <div class="count" id="galcount"></div>
+  </div>
+  <p class="caption">ギャラリーの模型（中の図と ID は説明用）。本物は試料・状態・主題・月・語句で絞り込み、日付・解析・試料でまとめ、クリックで拡大、解析 ID から解析ビューアへ飛べます。</p>
+
+  <ul>
+        <li><b>解析ビューア</b>は「試料 → 主題 → 系統（<code>-2</code>、<code>-3</code> の版と supersedes の連なり）→ 版」の木。manifest と notes.md を読むだけなので、解析フォルダは一切動かしません。</li>
+    <li><b>スライドや Word に貼る PNG</b> は <code>tools/pdf_to_png.py</code> で作り、出どころを三か所に残します：ファイル名 <code>&lt;ana_id&gt;__元の名前.png</code>、図の下の小さな脚注、PNG のメタデータ。貼った図から解析に戻れます。</li>
+  </ul>
+<div class="code"><div class="cap"><span>解析を足したら毎回</span><button class="copy" type="button">コピー</button></div><pre><code>labkit refresh      <span class="c"># 台帳 → 解析の一覧 → ギャラリーとビューア → 点検の要約</span></code></pre></div>
+  <div class="note ok"><b>ルールにして自動化する</b>「解析を足したら最後に必ずギャラリーも更新する」を README と Claude のメモリの両方に書きました。人が忘れても、Claude が解析の最後に <code>labkit refresh</code> を回します。</div>
+</section>
+
+<section id="notes">
+  <div class="num">09</div>
+  <h2>日誌と申し送り <span class="tag b-any">誰でも使える</span> <span class="tag b-claude">Claude</span></h2>
+  <p>解析フォルダは「何をしたか」を残します。その日なぜそれをしたか、何を捨てたかは日誌に書きます。</p>
+  <div class="tbl"><table>
+    <thead><tr><th>ファイル</th><th>書くこと</th></tr></thead>
+    <tbody>
+      <tr><td><code>notes/2025-11-04.md</code></td><td>その日回した ana_id、分かったこと 1–3 行、捨てた方向、次にやること。誰の判断かを残すため、指示は「ユーザー『相図を描き直す』」のように短く引用する</td></tr>
+      <tr><td><code>notes/HANDOFF_2025-09-20.md</code></td><td>作業を別の人・別のチャットに渡すときの文書。どこに何があるか、決まったこと、未決のこと、やってはいけないこと</td></tr>
+      <tr><td><code>notes/request-*.md</code> / <code>handback-*.md</code></td><td>作業の依頼と返却。たとえば「スライドの作業」から「解析の作業」へ図を 6 枚頼み、終わったら返却票で答える</td></tr>
+    </tbody>
+  </table></div>
+  <p>新しいチャット（あるいは新しく来た学生）には、最初に最新の HANDOFF を読ませます。会話の記憶に頼らないので、何日空いても同じ所から再開できます。</p>
+<div class="code"><div class="cap"><span>HANDOFF の骨組み</span><button class="copy" type="button">コピー</button></div><pre><code># 次のチャットへ — 最初に読むもの（2025-09-22）
+
+## 新しいチャットの最初の一言（これをそのまま貼れば足りる）
+&gt; 口頭発表スライドの続き。reports/oral-conf-2025/handover.md の §0 を読んでから始めて。
+
+## 読む順番
+1. handover.md §0（作業中の状態・警告・残りの手順）
+2. notation.md（記号の取り決め）、facts.md（スライドに出す数値）
+
+## 一行でいうと
+- 出ている成果物は v17。スライド 26 は事実として誤り → 作り直し中
+
+## 待っているもの（相手 / 中身）
+## やってはいけないこと</code></pre></div>
+</section>
+
+<section id="slides">
+  <div class="num">10</div>
+  <h2>スライドとポスター <span class="tag b-claude">Claude があると楽になる</span></h2>
+  <p>発表資料も「元から作り直せる生成物」として扱います。スライドの文章と図の指定は一つのテキスト（例：<code>content.py</code>）に書き、ビルドスクリプトが HTML・PPTX・PDF を出します。</p>
+<div class="code"><div class="cap"><span>reports/oral-conf-2025/</span></div><pre class="tree">oral-conf-2025/
+  START-HERE-next-chat.md   <span class="c">← 次の作業者が最初に読む</span>
+  handover.md               <span class="c">§0 現状 / §1 どこに何 / §2 ビルド / §3 構成</span>
+  <span class="dir">src/</span>
+    content.py              <span class="c">スライドの本文と図の指定（直すのはここだけ）</span>
+    build_html.py           <span class="c">→ HTML。PPTX と PDF も同じ元から</span>
+    fig_*.py                <span class="c">スライド専用の図。データは ana_id の out/ から読む</span>
+    facts.md                <span class="c">スライドに出す数値の正本</span>
+    notation.md             <span class="c">記号の取り決め（ΔT の基準など）</span>
+  <span class="gen">talk-v17.html  talk-v17.pptx  talk-v17.pdf</span>
+  旧_v13-v16/</pre></div>
+  <div class="pair">
+    <div><h4>facts.md と notation.md</h4><p>数値と記号の定義を一か所に固定します。AI に書かせると、版を重ねるうちに数値や定義がいつの間にか変わることがあります。撤回した値もここに「撤回」と書きます。</p></div>
+    <div><h4>版番号と持ち時間</h4><p>出すたびに v を一つ上げ、古い版はフォルダに退避。「いまの構成で 18:05 / 15:00 枠」のように時間も申し送りに書きます。</p></div>
+  </div>
+  <div class="note warn"><b>やってはいけないこと</b>.pptx や .html を直接編集しない（次のビルドで消えます）。多形などの色の割り当てを途中で変えない（例：α 青・β′ 赤・β 緑。論文・ポスター・スライドで共通）。</div>
+  <p>ポスターも同じ作りです。A0 の HTML をビルドし、「ポスターに使った図だけの一覧」を別に生成します。質疑で「この点は何本の測定から？」と聞かれたときの棚卸し表も、同じフォルダに作っておきます。</p>
+  <div class="prompt">口頭発表のスライドの続き。handover.md の §0 を読んでから始めて。スライド 26 の図は B 案を本編、A 案を予備に。content.py を直して v18 をビルドして。</div>
+</section>
+
+<section id="paper">
+  <div class="num">11</div>
+  <h2>論文の作業フォルダ <span class="tag b-any">誰でも使える</span> <span class="tag b-claude">Claude</span></h2>
+  <p>論文一本につき一つ、<code>Documents/manuscript-&lt;テーマ&gt;/</code> を作ります。データと同じプロジェクトの中に置くので、図のスクリプトは解析フォルダを相対パスで読めます。</p>
+<div class="code"><div class="cap"><span>Documents/manuscript-paper1/</span></div><pre class="tree">manuscript-paper1/
+  PROGRESS.md                <span class="c">← 新しいチャットはまずここ。図ごとの状態表と日付つきの経過</span>
+  HANDOFF.md                 <span class="c">論文を別のチャットから切り出したときの引き継ぎ</span>
+  outline_v1.md  outline_v2_figs.md      <span class="c">筋書きと図の並び</span>
+  draft_v3_intro.md          <span class="c">本文の現行版</span>
+  draft_v3_intro.before-general-opening_2025-11-02.md   <span class="c">← 大きく直す前の控え</span>
+  draft_v1_experimental.md   <span class="c">末尾に [要確認] の項目を並べる</span>
+  <span class="dir">figs/</span>
+    fig05_ta_series.py       <span class="c">図番号ごとに一本</span>
+    README.md                <span class="c">論文の図の規格（サイズ・フォント・色）</span>
+    <span class="gen">out/fig05_ta_series.pdf</span>
+  <span class="gen">figure_claims_board.html</span>   <span class="c">図と主張を並べたボード（_build_board/ から生成）</span>
+  <span class="dir">comments/</span>DISCUSSION.md   <span class="c">共著者のコメントと議論の経過、決定事項</span>
+  lit_check_2025-10-19.md    <span class="c">テーマごとの文献調査メモ</span>
+  <span class="dir">materials/</span>  <span class="dir">share/</span>        <span class="c">共著者に送るものは share/ に</span></pre></div>
+  <ul>
+    <li><b>PROGRESS.md の図の表</b>：Fig. 番号・内容・状態（試作／確定）・メモ。どの図が最新の判定を使っているかもここに書きます。</li>
+    <li><b>直す前の控え</b>は <code>.before-&lt;何を変えるか&gt;_&lt;日付&gt;.md</code>。git を使わない共著者でも、何を変えたか分かります。</li>
+    <li><b>図と主張のボード</b>：図ごとに「この図で何を言うか」を一枚に並べると、図が主張を支えていない所がすぐ見えます。</li>
+    <li><b>論文を二本に分けるとき</b>は、HANDOFF に「論文 1 で主張すること／論文 2 で主張すること／引用で済ませること」の表を作り、重複を防ぎます。</li>
+    <li><b>[要確認]</b>：試薬の純度、課題番号、検出器の型番など、人にしか確かめられない項目は、本文の末尾に番号つきで並べておきます。</li>
+  </ul>
+</section>
+
+<section id="claude">
+  <div class="num">12</div>
+  <h2>Claude との分担 <span class="tag b-claude">Claude があると楽になる</span></h2>
+  <p>ここまでの仕組みは、人だけでも回せます。AI のコーディング助手を使うと、台帳やギャラリーのスクリプトを書く、毎回の再生成、日誌、申し送りといった手間の大部分を任せられます。そのための置き方を四つ紹介します。</p>
+  <h3>1. 入口を一つにする</h3>
+  <p>Claude Code は起動時に <code>~/.claude/CLAUDE.md</code> を読みます。ここには地図の場所だけを書き、中身は <code>~/Research/README.md</code> に一本化します。二か所に書くと、片方だけ古くなります。</p>
+<div class="code"><div class="cap"><span>~/.claude/CLAUDE.md</span><button class="copy" type="button">コピー</button></div><pre><code># フォルダの地図
+研究・教育・事務のファイルは ~/Research にまとめてある。
+置き場所とルールは ~/Research/README.md を読むこと（地図の正本）。
+移動の履歴は ~/Research/MOVES.md。プログラムは ~/Projects。</code></pre></div>
+  <h3>2. 繰り返す作業は skill にする</h3>
+  <p>「DSC のフォルダを渡されたら、台帳を作り、ピークを検出し、Ta と多形の関係をまとめ、HTML のレポートとスライドを出す」のような一連の手順を、skill（手順書とスクリプトの束）にまとめます。次からは「このフォルダの DSC をまとめて」で同じ品質の結果が出ます。判断の規約も skill の Markdown に書くので、別の日・別のチャットでも同じ基準で解析されます。</p>
+  <h3>3. 短いメモリに「いつも」を書く</h3>
+  <p>「解析したら毎回ギャラリーを作り直す」のような、毎回の指示を一行のメモリにします。言い忘れても守られます。</p>
+  <h3>4. 一つの作業に一つのチャット</h3>
+  <p>解析・スライド・論文を別々のチャット（セッション）で進め、受け渡しは request／handback のファイルで行います。会話が長くなったら HANDOFF を書かせて新しいチャットに移ります。</p>
+
+  <div class="tbl"><table>
+    <thead><tr><th>任せること</th><th>人が決めること</th></tr></thead>
+    <tbody>
+      <tr><td>台帳・ギャラリー・ビューアのスクリプトを書いて回す</td><td>何を問うか（解析フォルダの question）</td></tr>
+      <tr><td>解析フォルダを作り、manifest と notes を埋める</td><td>規約（閾値、基準、記号）と、その採否</td></tr>
+      <tr><td>日誌・HANDOFF・PROGRESS の更新</td><td>どの図を論文やスライドに使うか</td></tr>
+      <tr><td>スライドや図のビルド、版の管理</td><td>数値が物理的に正しいか、文献と合うか</td></tr>
+    </tbody>
+  </table></div>
+
+  <div class="note warn"><b>Claude に渡す禁止事項</b>DATA/ に触らない、analyses/ を消さない、ファイルを動かすときは提案して承認をもらってから動かし MOVES.md に書く、.pptx を直接編集しない。これをプロジェクトの README に書いておくと、別のチャットでも同じように守られます。</div>
+
+  <h3>頼み方の例</h3>
+  <div class="prompt">PPP の DSC で Ta = 40–50 °C のものを台帳から選んで、Avrami の n と誘導時間を Ta に対して並べて。解析フォルダを作って、終わったらギャラリーも更新して。</div>
+  <div class="prompt">この解析は t₀ の取り方を間違えていたので rejected にして、理由を notes.md に書いて。直した版を supersedes つきで新しく作って。</div>
+  <div class="prompt">論文の Fig. 5 の根拠を辿って。どの測定を使って、そのうち status が bad のものは入っていないか確認して。</div>
+  <div class="prompt">今日の作業を notes/ の日誌にまとめて、明日の自分向けに HANDOFF を書いて。</div>
+</section>
+
+<section id="start">
+  <div class="num">13</div>
+  <h2>明日から始める <span class="tag b-any">誰でも使える</span></h2>
+  <p>全部を一度にそろえる必要はありません。効果の大きい順に並べました。</p>
+  <ol class="steps">
+    <li><b>README.md を一枚書く。</b>フォルダの地図と、DATA に触らないという約束だけでよい。</li>
+    <li><b>生データを <code>DATA/</code> に集めて凍結する。</b>今後は足すだけ。</li>
+    <li><b>台帳を作る。</b>最初は手書きの CSV でも、<code>meas_id, path, thermal_history, status, note</code> の五列で始められます。慣れたらスクリプトで生成に切り替えます。</li>
+    <li><b>次の解析から <code>analyses/ana-日付-名前/</code> を作る。</b>manifest は question と inputs だけでも価値があります。</li>
+    <li><b>日誌を一日三行書く。</b>回した ana_id と、捨てた方向。</li>
+    <li><b>解析が 20 を超えたら、図ギャラリーを作る。</b></li>
+    <li><b>発表や論文の図には ana_id を脚注で入れる。</b>これで鎖がつながります。</li>
+    <li><b>論文に出す前に一度、検算する。</b>点検メモを作り、結果を解析に記録します。</li>
+  </ol>
+<div class="code"><div class="cap"><span>雛形を作るコマンド</span><button class="copy" type="button">コピー</button></div><pre><code>mkdir -p my-project/{DATA,analyses,notes,scratch,tools,reports,Documents}
+printf 'meas_id,instr,date,sample,thermal_history,path,status,tags,note\n' &gt; my-project/ledger.csv
+printf '# my-project\n\n## 二つの禁止\n1. DATA/ に触らない\n2. analyses/ を消さない\n' &gt; my-project/README.md</code></pre></div>
+  <div class="note ok"><b>コマンド一つで雛形を作る</b>ここまでの仕組みを <code>labkit</code> という道具にまとめました（標準ライブラリだけで動く Python）。<code>labkit demo my-demo</code> で、練習用の合成 DSC データから台帳・解析・ギャラリー・点検までが手元にできます。公開先は GitHub の traceable-lab（準備中）。</div>
+<div class="code"><div class="cap"><span>labkit の主なコマンド</span><button class="copy" type="button">コピー</button></div><pre><code>labkit map ~/Research                <span class="c"># 研究フォルダ全体の地図</span>
+labkit init my-project               <span class="c"># 実験プロジェクトの雛形（CLAUDE.md と skill つき）</span>
+labkit ledger / refresh / trace      <span class="c"># 台帳、まとめて更新、根拠を辿る</span>
+labkit check / audit / verify        <span class="c"># 検証</span>
+labkit manuscript paper1             <span class="c"># 論文の作業フォルダ</span>
+labkit talk conf-2025                <span class="c"># 発表の作業フォルダ</span></code></pre></div>
+</section>
+
+<footer>
+  <p>熱分析（DSC）・X 線回折（XRD）・小角散乱（SAXS）で油脂の結晶多形を調べる研究室での運用をもとに、一般化して書きました。例の数値と ID は説明用です。</p>
+</footer>
+</main>
+</div>
+
+<script>
+// 目次: 狭い画面では閉じておく
+(function(){
+  var d=document.getElementById('tocd');
+  if(window.matchMedia('(max-width:900px)').matches){d.removeAttribute('open')}
+  d.querySelectorAll('a').forEach(function(a){a.addEventListener('click',function(){if(window.matchMedia('(max-width:900px)').matches)d.removeAttribute('open')})});
+})();
+
+// コピー
+document.querySelectorAll('.copy').forEach(function(b){
+  b.addEventListener('click',function(){
+    var pre=b.closest('.code').querySelector('pre'); var t=pre.innerText;
+    var done=function(){b.textContent='コピーしました';setTimeout(function(){b.textContent='コピー'},1600)};
+    try{navigator.clipboard.writeText(t).then(done,function(){sel(pre)})}catch(e){sel(pre)}
+  });
+});
+function sel(el){var r=document.createRange();r.selectNodeContents(el);var s=getSelection();s.removeAllRanges();s.addRange(r)}
+
+// ギャラリー模型
+(function(){
+  var items=[
+    {id:'ana-20250914-c8tag-ta-scan-dsc',t:'DSC 冷却 → 保持 → 昇温',s:'C8TAG',st:'used',k:'dsc'},
+    {id:'ana-20250915-c8tag-t0-modes',t:'t₀ の取り方で n が動く',s:'C8TAG',st:'rejected',k:'avr'},
+    {id:'ana-20250915-c8tag-t0-modes-2',t:'t₀ 4 モードの比較（修正版）',s:'C8TAG',st:'used',k:'avr'},
+    {id:'ana-20250915-ppp-xrd-phase-map',t:'Ta と多形の地図',s:'PPP',st:'used',k:'map'},
+    {id:'ana-20250916-ppp-xrd-xt',t:'XRD の X(t)',s:'PPP',st:'tried',k:'avr'},
+    {id:'ana-20250916-c10tag-xrd-phases',t:'WAXS サブセル線',s:'C10TAG',st:'tried',k:'xrd'},
+    {id:'ana-20250917-c10tag-xrd-phases-2',t:'相の判定（閾値を修正）',s:'C10TAG',st:'used',k:'xrd'},
+    {id:'ana-20250917-ppp-saxs-001',t:'SAXS 001 の 3 相フィット',s:'PPP',st:'used',k:'saxs'}
+  ];
+  var f={sample:'all',status:'all'};
+  var grid=document.getElementById('galgrid'), cnt=document.getElementById('galcount');
+  function spark(k){
+    var W=200,H=110,p=[];
+    var col={dsc:'var(--red)',avr:'var(--blue)',map:'var(--green)',xrd:'var(--green)',saxs:'var(--blue)'}[k];
+    for(var i=0;i<=100;i++){
+      var x=i/100,y;
+      if(k==='dsc') y=.55-.35*Math.exp(-Math.pow((x-.35)/.04,2))+.3*Math.exp(-Math.pow((x-.78)/.03,2));
+      else if(k==='avr') y=.85-.7*(1-Math.exp(-Math.pow(x*3.2,2.6)));
+      else if(k==='xrd') y=.85-.6*Math.exp(-Math.pow((x-.3)/.012,2))-.35*Math.exp(-Math.pow((x-.55)/.014,2))-.45*Math.exp(-Math.pow((x-.62)/.012,2));
+      else if(k==='saxs') y=.85-.7*Math.exp(-Math.pow((x-.4)/.03,2))-.25*Math.exp(-Math.pow((x-.47)/.025,2));
+      else y=null;
+      if(y!==null)p.push((12+x*(W-24)).toFixed(1)+','+(10+y*(H-20)).toFixed(1));
+    }
+    var body;
+    if(k==='map'){
+      body='';var cs=['var(--blue)','var(--red)','var(--green)'];
+      for(var r=0;r<4;r++)for(var c=0;c<8;c++){var ph=c<3?0:(c<6?1:2);if(r===0&&c===2)ph=1;body+='<rect x="'+(14+c*22)+'" y="'+(14+r*21)+'" width="18" height="17" rx="2" fill="'+cs[ph]+'" opacity=".75"/>'}
+    } else body='<polyline points="'+p.join(' ')+'" fill="none" stroke="'+col+'" stroke-width="2"/>';
+    return '<svg viewBox="0 0 '+W+' '+H+'" aria-hidden="true"><line x1="12" y1="'+(H-10)+'" x2="'+(W-12)+'" y2="'+(H-10)+'" stroke="var(--rule)"/>'+body+'</svg>';
+  }
+  function render(){
+    var v=items.filter(function(it){return (f.sample==='all'||it.s===f.sample)&&(f.status==='all'||it.st===f.status)});
+    grid.innerHTML=v.map(function(it){return '<div class="card">'+spark(it.k)+'<div class="meta"><span>'+it.t+'</span><span class="id">'+it.id+'</span><span class="st st-'+it.st+'">'+it.st+' · '+it.s+'</span></div></div>'}).join('');
+    cnt.textContent=v.length+' / '+items.length+' 枚';
+  }
+  document.querySelectorAll('#gal .chip').forEach(function(b){
+    b.addEventListener('click',function(){
+      var k=b.dataset.f; f[k]=b.dataset.v;
+      document.querySelectorAll('#gal .chip[data-f="'+k+'"]').forEach(function(o){o.setAttribute('aria-pressed',o===b?'true':'false')});
+      render();
+    });
+  });
+  render();
+})();
+</script>

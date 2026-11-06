@@ -108,3 +108,15 @@ def research_map(dest: str):
         os.makedirs(os.path.join(dest, d), exist_ok=True)
     made, skipped = copy_tree("research-map", dest, {"date": date.today().isoformat(), "path": dest})
     return dest, made, skipped
+
+
+def new_audit(root: str, slug: str):
+    """notes/audit-<slug>_<日付>.md を雛形から作る。"""
+    today = date.today().isoformat()
+    slug = _slug(slug)
+    with open(os.path.join(TEMPLATES, "audit.md"), encoding="utf-8") as f:
+        text = f.read().replace("{{slug}}", slug).replace("{{date}}", today)
+    dest = os.path.join(root, "notes", "audit-%s_%s.md" % (slug, today))
+    made, skipped = [], []
+    _write_new(dest, text, made, skipped, root)
+    return dest, made, skipped

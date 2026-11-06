@@ -18,4 +18,4 @@ labkit = "labkit.cli:main"
 packages = ["labkit", "labkit.readers"]
 
 [tool.setuptools.package-data]
-labkit = ["templates/**/*", "templates/**/.claude/**/*"]
+labkit = ["templates/*", "templates/**/*", "templates/**/.claude/**/*"]

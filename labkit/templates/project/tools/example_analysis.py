@@ -100,8 +100,17 @@ def main():
     A.finish(results={"n_runs": len(res),
                       "Tm_range_C": [min(o["Tm_peak_C"] for _, o in res), max(o["Tm_peak_C"] for _, o in res)]},
              status="used")
-    with open(A.notes_path, "a", encoding="utf-8") as f:
-        f.write("\n## 結果の表\n`out/per_run.csv`（%d ラン）\n" % len(res))
+    # notes.md の「分かったこと」を埋める（数行で。数値は単位と、どの規約で出したかと一緒に）
+    with open(A.notes_path, encoding="utf-8") as f:
+        notes = f.read()
+    found = ("Ta %g–%g °C の %d ラン。結晶化ピークまでの時間は %.1f → %.1f 分で Ta とともに長くなる。"
+             "融解ピークは %g–%g °C（保持直後 1 分を過渡として除いた発熱の極値で判定）。表は `out/per_run.csv`"
+             % (res[0][1]["Ta"], res[-1][1]["Ta"], len(res), res[0][1]["t_cryst_peak_min"],
+                res[-1][1]["t_cryst_peak_min"], min(o["Tm_peak_C"] for _, o in res), max(o["Tm_peak_C"] for _, o in res)))
+    notes = notes.replace("（結果が出たら数行で）", found).replace(
+        "（この analysis の続きに何をするか、あるいは捨てた理由）", "同じ Ta を繰り返して、ばらつきを見る")
+    with open(A.notes_path, "w", encoding="utf-8") as f:
+        f.write(notes)
     print(A.ana_id, "->", A.dir)
     subprocess.run([sys.executable, "-m", "labkit", "refresh", "--root", L.root], check=False)
 

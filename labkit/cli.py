@@ -11,6 +11,13 @@
     labkit gallery                        図ギャラリーと解析ビューアを作り直す
     labkit refresh                        ledger → index → gallery をまとめて
     labkit trace <ana_id>                 図の根拠を生データまで辿る
+
+    （検証）
+    labkit check                          根拠の鎖を点検（読むだけ）。reports/check_report.md に書く
+    labkit audit <名前>                   点検メモの雛形 notes/audit-<名前>_<日付>.md
+    labkit verify <ana_id> --result ok|caution|error --method "…" [--note "…"] [--report パス]
+                                          検証の結果を manifest に残す（ギャラリーに印が出る）
+    labkit downstream <ana_id|スクリプト>  直したら作り直す解析を、上流から順に並べる
     labkit manuscript <名前> [--title]    論文の作業フォルダ Documents/manuscript-<名前>/
     labkit talk <名前> [--title]          発表の作業フォルダ reports/talk-<名前>/
 """
@@ -22,7 +29,7 @@ import os
 import subprocess
 import sys
 
-from . import __version__, analysis, build_ledger, gallery, ledger, scaffold
+from . import __version__, analysis, build_ledger, check, gallery, ledger, scaffold
 
 
 def _report(dest, made, skipped):
@@ -40,6 +47,10 @@ def _refresh(root: str):
         build_ledger.build(root)
     print("解析一覧: -> %s" % analysis.build_index(root))
     gallery.build(root)
+    F = check.run(root)
+    check.write_report(root, F)
+    n = {k: sum(1 for f in F if f["level"] == k) for k in check.LEVELS}
+    print("点検: 誤り %(error)d・要注意 %(warn)d・参考 %(info)d（詳しくは labkit check）" % n)
 
 
 def main(argv=None):
@@ -70,6 +81,23 @@ def main(argv=None):
     p.add_argument("--where", nargs="*", default=[], help="列=値 で台帳を絞る（例: instr=dsc sample=PPP）")
     p.add_argument("--procedure", default="")
     p.add_argument("--supersedes")
+    p.add_argument("--root")
+    p = sub.add_parser("check", help="根拠の鎖を点検する（読むだけ）")
+    p.add_argument("--root")
+    p.add_argument("--strict", action="store_true", help="誤りがあれば終了コード 1（CI 用）")
+    p = sub.add_parser("verify", help="検証の結果を解析に記録する")
+    p.add_argument("ana_id")
+    p.add_argument("--result", required=True, choices=analysis.CHECK_RESULTS)
+    p.add_argument("--method", required=True, help="どう確かめたか")
+    p.add_argument("--by", default="")
+    p.add_argument("--note", default="")
+    p.add_argument("--report", default="", help="点検メモのパス")
+    p.add_argument("--root")
+    p = sub.add_parser("downstream", help="直したら作り直す解析を並べる")
+    p.add_argument("target", help="ana_id かスクリプトのパス")
+    p.add_argument("--root")
+    p = sub.add_parser("audit", help="点検メモの雛形を作る")
+    p.add_argument("slug")
     p.add_argument("--root")
     for name in ("manuscript", "talk"):
         p = sub.add_parser(name, help="論文の作業フォルダ" if name == "manuscript" else "発表の作業フォルダ")
@@ -118,6 +146,28 @@ def main(argv=None):
         A = analysis.new(L, a.slug, question=a.question, inputs=rows, procedure=a.procedure,
                          supersedes=a.supersedes)
         print("%s（入力 %d 測定）-> %s" % (A.ana_id, len(rows), A.dir))
+    elif a.cmd == "check":
+        root = _root(a)
+        F = check.run(root)
+        print(check.summary(F))
+        print("-> %s" % check.write_report(root, F))
+        if a.strict and any(f["level"] == "error" for f in F):
+            sys.exit(1)
+    elif a.cmd == "verify":
+        root = _root(a)
+        analysis.add_check(root, a.ana_id, a.result, a.method, a.by, a.note, a.report)
+        print("%s に検証を記録した: %s" % (a.ana_id, a.result))
+        gallery.build(root, quiet=True)
+    elif a.cmd == "downstream":
+        root = _root(a)
+        ids = check.downstream(root, a.target)
+        if not ids:
+            print("影響を受ける解析は見つからなかった")
+        for i, x in enumerate(ids, 1):
+            print("%2d. %s" % (i, x))
+    elif a.cmd == "audit":
+        dest, made, skipped = scaffold.new_audit(_root(a), a.slug)
+        _report(dest, made, skipped)
     elif a.cmd in ("manuscript", "talk"):
         fn = scaffold.new_manuscript if a.cmd == "manuscript" else scaffold.new_talk
         dest, made, skipped = fn(_root(a), a.slug, a.title)

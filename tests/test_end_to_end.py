@@ -15,7 +15,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(HERE)
 sys.path.insert(0, REPO)
 
-from labkit import analysis, build_ledger, gallery, ledger, scaffold  # noqa: E402
+from labkit import analysis, build_ledger, check, gallery, ledger, scaffold  # noqa: E402
 
 
 def run(*args, cwd=None):
@@ -110,6 +110,83 @@ class EndToEnd(unittest.TestCase):
         rec = {a["id"]: a for a in data["analyses"]}
         self.assertEqual(rec[first.ana_id]["superseded_by"], B.ana_id)
         self.assertEqual(rec[first.ana_id]["lineage"], rec[B.ana_id]["lineage"])
+
+
+class Verification(unittest.TestCase):
+    """labkit check / verify / downstream。"""
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp()
+        self.proj = os.path.join(self.tmp, "demo")
+        run("demo", self.proj)
+        self.A, self.B = analysis.list_all(self.proj)
+
+    def tearDown(self):
+        shutil.rmtree(self.tmp)
+
+    def kinds(self, level=None):
+        return {(f["kind"], f["target"]) for f in check.run(self.proj) if level is None or f["level"] == level}
+
+    def test_clean_project_has_no_errors(self):
+        F = check.run(self.proj)
+        self.assertEqual([f for f in F if f["level"] == "error"], [])
+        self.assertIn(("unverified", self.A.ana_id), self.kinds("info"))
+
+    def test_data_changed_and_zero_byte(self):
+        L = ledger.load(self.proj)
+        p = L.resolve(self.A.manifest["inputs"][0])
+        with open(p, "a", encoding="latin-1") as f:
+            f.write("\n")
+        open(os.path.join(self.proj, "DATA", "dsc", "broken.txt"), "w").close()
+        k = self.kinds("error")
+        self.assertIn(("data_changed", self.A.ana_id), k)
+        self.assertIn(("zero_byte", "DATA/dsc/broken.txt"), k)
+
+    def test_ledger_fix_after_analysis(self):
+        mid = self.A.manifest["inputs"][0]
+        with open(os.path.join(self.proj, "ledger_fixes.csv"), "a", encoding="utf-8") as f:
+            f.write("%s,mass_mg,9.99,秤量の記録を見直した\n" % mid)
+        build_ledger.build(self.proj, quiet=True)
+        self.assertIn(("ledger_changed", self.A.ana_id), self.kinds("warn"))
+
+    def test_code_changed_and_downstream_by_script(self):
+        with open(os.path.join(self.proj, "tools", "example_analysis.py"), "a", encoding="utf-8") as f:
+            f.write("\n# 直した\n")
+        self.assertIn(("code_changed", self.A.ana_id), self.kinds("warn"))
+        ids = check.downstream(self.proj, os.path.join(self.proj, "tools", "example_analysis.py"))
+        self.assertEqual(sorted(ids), sorted([self.A.ana_id, self.B.ana_id]))
+
+    def test_error_propagates_downstream(self):
+        L = ledger.load(self.proj)
+        C = analysis.new(L, "summary", question="A を元にしたまとめ", inputs=self.A.manifest["inputs"],
+                         procedure="test", based_on=self.A.ana_id)
+        C.finish(status="used")
+        analysis.add_check(self.proj, self.A.ana_id, "error", "生データから再計算", note="段の境界がずれる")
+        k = self.kinds()
+        self.assertIn(("check_error", self.A.ana_id), k)
+        self.assertIn(("downstream_of_error", C.ana_id), k)
+        self.assertEqual(check.downstream(self.proj, self.A.ana_id), [self.A.ana_id, C.ana_id])
+        data = gallery.collect(self.proj)
+        self.assertEqual({a["id"]: a["check"] for a in data["analyses"]}[self.A.ana_id], "error")
+
+    def test_superseded_used_is_flagged_and_shown(self):
+        L = ledger.load(self.proj)
+        N = analysis.new(L, "examplefat-a-ta-scan", question="直した版", inputs=self.A.manifest["inputs"],
+                         procedure="test", supersedes=self.A.ana_id)
+        N.finish(status="used")
+        self.assertIn(("superseded_used", self.A.ana_id), self.kinds("warn"))
+        rec = {a["id"]: a for a in gallery.collect(self.proj)["analyses"]}
+        self.assertEqual(rec[self.A.ana_id]["state"], "superseded")
+        self.assertNotIn(self.A.ana_id, check.downstream(self.proj, self.A.ana_id))
+
+    def test_cli_verify_and_audit(self):
+        run("verify", self.A.ana_id, "--result", "ok", "--method", "別実装で再計算", "--root", self.proj)
+        self.assertEqual(analysis.open_(self.proj, self.A.ana_id).manifest["checks"][-1]["result"], "ok")
+        out = run("audit", "segments", "--root", self.proj).stdout
+        self.assertIn("audit-segments_", out)
+        r = subprocess.run([sys.executable, "-m", "labkit", "check", "--strict", "--root", self.proj],
+                           env=dict(os.environ, PYTHONPATH=REPO), capture_output=True, text=True)
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
 
 
 if __name__ == "__main__":
